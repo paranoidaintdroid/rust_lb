@@ -166,82 +166,97 @@
 
 // --------------------------------------5--------------------------------------------------
 
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
-    time::{Duration, sleep},
-};
+// use tokio::{
+//     io::{AsyncReadExt, AsyncWriteExt},
+//     net::{TcpListener, TcpStream},
+//     time::{Duration, sleep},
+// };
 
-async fn read_or_timeout(stream: &mut TcpStream, timeout: Duration) -> Result<Vec<u8>, String> {
-    let mut buf = vec![0u8; 1024];
+// async fn read_or_timeout(stream: &mut TcpStream, timeout: Duration) -> Result<Vec<u8>, String> {
+//     let mut buf = vec![0u8; 1024];
 
-    let deadline = sleep(timeout);
-    tokio::pin!(deadline);
+//     let deadline = sleep(timeout);
+//     tokio::pin!(deadline);
 
-    loop {
-        tokio::select! {
-            result = stream.read(&mut buf) => {
+//     loop {
+//         tokio::select! {
+//             result = stream.read(&mut buf) => {
 
-                match result {
-                    Ok(0)  => return Err("connection closed".into()),
-                    Ok(n)  => return Ok(buf[..n].to_vec()),
-                    Err(e) => return Err(e.to_string()),
-                }
+//                 match result {
+//                     Ok(0)  => return Err("connection closed".into()),
+//                     Ok(n)  => return Ok(buf[..n].to_vec()),
+//                     Err(e) => return Err(e.to_string()),
+//                 }
+//             }
+
+//             _ = &mut deadline => {
+
+//                 return Err("timed out".into());
+//             }
+//         }
+//     }
+// }
+
+// #[tokio::main]
+// async fn main() {
+//     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+
+//     let addr = listener.local_addr().unwrap();
+//     println!("Listener bound to {}", addr);
+
+//     let server_task = tokio::spawn(async move {
+//         let (_socket, peer) = listener.accept().await.unwrap();
+//         println!("[server] Scenario A: accepted connection from {}", peer);
+//         sleep(Duration::from_millis(200)).await;
+//         println!("[server] Scenario A: done holding");
+
+//         let (mut socket, peer) = listener.accept().await.unwrap();
+//         println!("[server] Scenario B: accepted connection from {}", peer);
+//         sleep(Duration::from_millis(5)).await;
+//         socket.write_all(b"hello beast").await.unwrap();
+//         println!("[server] Scenario B: wrote bytes");
+//         sleep(Duration::from_millis(50)).await;
+//     });
+
+//     let client_task = tokio::spawn(async move {
+//         let mut stream = TcpStream::connect(addr).await.unwrap();
+//         println!("[client] Scenario A: connected, waiting with 20ms timeout...");
+//         let result = read_or_timeout(&mut stream, Duration::from_millis(20)).await;
+//         println!("[client] Scenario A result: {:?}", result);
+//         assert!(result.is_err(), "expected timeout, got data");
+
+//         sleep(Duration::from_millis(250)).await;
+
+//         let mut stream = TcpStream::connect(addr).await.unwrap();
+//         println!("[client] Scenario B: connected, waiting with 100ms timeout...");
+//         let result = read_or_timeout(&mut stream, Duration::from_millis(100)).await;
+
+//         println!("[client] Scenario B result: {:?}", result);
+//         if let Ok(bytes) = &result {
+//             println!(
+//                 "[client] Scenario B as string: {}",
+//                 String::from_utf8_lossy(bytes)
+//             );
+//         }
+//         assert!(result.is_ok(), "expected data, got timeout");
+//     });
+
+//     tokio::join!(server_task, client_task).0.unwrap();
+//     println!("all done");
+// }
+
+
+//----------------------------------------------------Real Stuff Starts here ---------------------------------------------------
+
+fn main() {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()  
+        .build()
+        .unwrap()
+        .block_on(async {
+            if let Err(e) = rust_lb::run("127.0.0.1:8080").await {
+                eprintln!("Server error: {}", e);
+                std::process::exit(1);
             }
-
-            _ = &mut deadline => {
-
-                return Err("timed out".into());
-            }
-        }
-    }
-}
-
-#[tokio::main]
-async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-
-    let addr = listener.local_addr().unwrap();
-    println!("Listener bound to {}", addr);
-
-    let server_task = tokio::spawn(async move {
-        let (_socket, peer) = listener.accept().await.unwrap();
-        println!("[server] Scenario A: accepted connection from {}", peer);
-        sleep(Duration::from_millis(200)).await;
-        println!("[server] Scenario A: done holding");
-
-        let (mut socket, peer) = listener.accept().await.unwrap();
-        println!("[server] Scenario B: accepted connection from {}", peer);
-        sleep(Duration::from_millis(5)).await;
-        socket.write_all(b"hello beast").await.unwrap();
-        println!("[server] Scenario B: wrote bytes");
-        sleep(Duration::from_millis(50)).await;
-    });
-
-    let client_task = tokio::spawn(async move {
-        let mut stream = TcpStream::connect(addr).await.unwrap();
-        println!("[client] Scenario A: connected, waiting with 20ms timeout...");
-        let result = read_or_timeout(&mut stream, Duration::from_millis(20)).await;
-        println!("[client] Scenario A result: {:?}", result);
-        assert!(result.is_err(), "expected timeout, got data");
-
-     
-        sleep(Duration::from_millis(250)).await;
-
-        let mut stream = TcpStream::connect(addr).await.unwrap();
-        println!("[client] Scenario B: connected, waiting with 100ms timeout...");
-        let result = read_or_timeout(&mut stream, Duration::from_millis(100)).await;
-
-        println!("[client] Scenario B result: {:?}", result);
-        if let Ok(bytes) = &result {
-            println!(
-                "[client] Scenario B as string: {}",
-                String::from_utf8_lossy(bytes)
-            );
-        }
-        assert!(result.is_ok(), "expected data, got timeout");
-    });
-
-    tokio::join!(server_task, client_task).0.unwrap();
-    println!("all done");
+        });
 }
