@@ -1,4 +1,4 @@
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
 
 mod config;
@@ -19,7 +19,7 @@ fn main() -> Result<(), Error> {
     let token = CancellationToken::new();
     let token_clone = token.clone();
 
-    let _ = tokio::runtime::Builder::new_multi_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()

@@ -1,6 +1,6 @@
+use crate::error::Error;
 use serde::Deserialize;
 use std::fs;
-use crate::error::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
