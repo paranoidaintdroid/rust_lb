@@ -4,7 +4,7 @@
 
 The goal of this project is not just to produce a working proxy, but to **deeply understand how modern networking infrastructure works internally**. Instead of relying on high-level frameworks, the implementation focuses on learning the underlying systems concepts such as asynchronous execution, TCP networking, connection management, rate limiting, and proxy architectures.
 
-This project is being developed incrementally as a systems programming exercise while exploring Rust’s async ecosystem and Tokio runtime.
+This project is being developed incrementally as a systems programming exercise while exploring Rust’s async ecosystem and Tokio runtime and diving into networking.
 
 ---
 

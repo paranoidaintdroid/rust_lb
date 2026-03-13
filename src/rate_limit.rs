@@ -1,4 +1,6 @@
 use std::time::Instant;
+pub const DEFAULT_CAPACITY: f64 = 10.0;
+pub const DEFAULT_REFILL_RATE: f64 = 2.0;
 
 pub struct TokenBucket {
     tokens: f64,

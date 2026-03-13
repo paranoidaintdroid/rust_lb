@@ -22,7 +22,7 @@ fn main() -> Result<(), Error> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .unwrap()
+        .expect("failed to build Tokio runtime")
         .block_on(async move {
             tokio::spawn(async move {
                 sleep(Duration::from_secs(300)).await;

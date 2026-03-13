@@ -7,4 +7,10 @@ pub enum Error {
 
     #[error("failed to parse config file: {0}")]
     ConfigParse(#[from] toml::de::Error),
+
+    #[error("{0}")]
+    Other(String),
+
+    #[error("http parse error: {0}")]
+    HttpParse(#[from] httparse::Error),
 }
