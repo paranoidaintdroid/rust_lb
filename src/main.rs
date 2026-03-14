@@ -11,6 +11,8 @@ use error::Error;
 use proxy::run;
 
 fn main() -> Result<(), Error> {
+    
+    tracing_subscriber::fmt::init();
     let config = load_config()?;
 
     println!("Listening on: {}", config.listen_addr);
