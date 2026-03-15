@@ -6,7 +6,7 @@ use std::{
 };
 
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, copy_bidirectional},
+    io::{AsyncWriteExt, copy_bidirectional},
     net::{TcpListener, TcpStream},
     select,
     time::{Duration, sleep, timeout},
@@ -18,17 +18,11 @@ use tracing::{error, info, warn};
 use crate::config::Config;
 use crate::error::Error;
 use crate::rate_limit::{DEFAULT_CAPACITY, DEFAULT_REFILL_RATE, TokenBucket};
+use crate::http::{parse_request};
 
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(60);
-const MAX_HEADER_SIZE: usize = 8192;
 const BACKEND_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[allow(dead_code)]
-pub struct RequestInfo {
-    pub method: String,
-    pub path: String,
-    pub host: Option<String>,
-}
 
 pub async fn run(config: Config, token: CancellationToken) -> Result<(), Error> {
     let listener = TcpListener::bind(&config.listen_addr).await?;
@@ -89,7 +83,7 @@ pub async fn run(config: Config, token: CancellationToken) -> Result<(), Error> 
     }
 }
 
-#[tracing::instrument(skip(client), fields(peer = %peer_addr))]
+#[tracing::instrument(skip(client, peer_addr), fields(peer = %peer_addr))]
 async fn handle_connection(mut client: TcpStream, backend_addr: &str, peer_addr: std::net::SocketAddr) {
     let (request, raw_bytes) = match parse_request(&mut client).await {
         Ok(val) => val,
@@ -140,48 +134,6 @@ async fn handle_connection(mut client: TcpStream, backend_addr: &str, peer_addr:
     }
 }
 
-async fn parse_request(client: &mut TcpStream) -> Result<(RequestInfo, Vec<u8>), Error> {
-    let mut buffer = vec![0u8; MAX_HEADER_SIZE];
-    let mut filled = 0;
-
-    loop {
-        let n = client.read(&mut buffer[filled..]).await?;
-
-        if n == 0 {
-            return Err(Error::Other("Client closed connection".into()));
-        }
-
-        filled += n;
-
-        let mut headers = [httparse::EMPTY_HEADER; 64];
-        let mut req = httparse::Request::new(&mut headers);
-
-        match req.parse(&buffer[..filled])? {
-            httparse::Status::Complete(_offset) => {
-                let method = req.method.unwrap_or("").to_string();
-                let path = req.path.unwrap_or("").to_string();
-
-                let host = req
-                    .headers
-                    .iter()
-                    .find(|h| h.name.eq_ignore_ascii_case("host"))
-                    .and_then(|h| std::str::from_utf8(h.value).ok())
-                    .map(|s| s.to_string());
-
-                let info = RequestInfo { method, path, host };
-
-                return Ok((info, buffer[..filled].to_vec()));
-            }
-
-            httparse::Status::Partial => {
-                if filled >= MAX_HEADER_SIZE {
-                    return Err(Error::Other("Header too large".into()));
-                }
-                continue;
-            }
-        }
-    }
-}
 
 async fn connect_to_backend(addr: &str) -> Result<TcpStream, Error> {
     let connect_result = timeout(BACKEND_CONNECT_TIMEOUT, TcpStream::connect(addr)).await;

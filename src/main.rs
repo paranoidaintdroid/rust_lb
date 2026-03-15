@@ -1,22 +1,21 @@
-use tokio::time::{Duration, sleep};
+use rust_lb::config::load_config;
+use rust_lb::error::Error;
+use rust_lb::proxy::run;
+use rust_lb::shutdown::spawn_shutdown_timer;
 use tokio_util::sync::CancellationToken;
 
-mod config;
-mod error;
-mod proxy;
-mod rate_limit;
-
-use config::load_config;
-use error::Error;
-use proxy::run;
-
 fn main() -> Result<(), Error> {
-    
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
+
     let config = load_config()?;
 
-    println!("Listening on: {}", config.listen_addr);
-    println!("Backend count: {}", config.backends.len());
+    tracing::info!(
+        addr = %config.listen_addr,
+        backends = config.backends.len(),
+        "starting rust-beast"
+    );
 
     let token = CancellationToken::new();
     let token_clone = token.clone();
@@ -26,10 +25,7 @@ fn main() -> Result<(), Error> {
         .build()
         .expect("failed to build Tokio runtime")
         .block_on(async move {
-            tokio::spawn(async move {
-                sleep(Duration::from_secs(300)).await;
-                token.cancel();
-            });
+            spawn_shutdown_timer(token, 300);
             let _ = run(config, token_clone).await;
         });
 
