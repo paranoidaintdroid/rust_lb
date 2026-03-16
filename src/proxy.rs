@@ -17,12 +17,11 @@ use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::error::Error;
+use crate::http::parse_request;
 use crate::rate_limit::{DEFAULT_CAPACITY, DEFAULT_REFILL_RATE, TokenBucket};
-use crate::http::{parse_request};
 
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(60);
 const BACKEND_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-
 
 pub async fn run(config: Config, token: CancellationToken) -> Result<(), Error> {
     let listener = TcpListener::bind(&config.listen_addr).await?;
@@ -84,7 +83,11 @@ pub async fn run(config: Config, token: CancellationToken) -> Result<(), Error> 
 }
 
 #[tracing::instrument(skip(client, peer_addr), fields(peer = %peer_addr))]
-async fn handle_connection(mut client: TcpStream, backend_addr: &str, peer_addr: std::net::SocketAddr) {
+async fn handle_connection(
+    mut client: TcpStream,
+    backend_addr: &str,
+    peer_addr: std::net::SocketAddr,
+) {
     let (request, raw_bytes) = match parse_request(&mut client).await {
         Ok(val) => val,
         Err(e) => {
@@ -133,7 +136,6 @@ async fn handle_connection(mut client: TcpStream, backend_addr: &str, peer_addr:
         }
     }
 }
-
 
 async fn connect_to_backend(addr: &str) -> Result<TcpStream, Error> {
     let connect_result = timeout(BACKEND_CONNECT_TIMEOUT, TcpStream::connect(addr)).await;
